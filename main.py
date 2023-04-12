@@ -20,7 +20,7 @@ with open(context_file, 'w') as f:
 	json.dump(context, f)
 
 gptmodel = "gpt-3.5-turbo-0301"
-context_max=2000
+context_max = 2000
 lean = False
 
 def tokens_count(messages, model="gpt-3.5-turbo"):
@@ -56,30 +56,38 @@ def tokens_count(messages, model="gpt-3.5-turbo"):
 
 # Keep context array not more than 4000 tokens
 def trim_context(context, tokens, model="gpt-3.5-turbo"):
-	"""Trims the context array to be no more than 4000 tokens."""
 	while tokens_count(context, model) > tokens:
 		context.pop(0)
-	print("Context trimmed.")
 	return context
 
 # Function for sending a message to OpenAI API
 def send_message(context):
-	# context_tokens = count_tokens(context)
 	completion = openai.ChatCompletion.create(
 		model=gptmodel,
 		messages=context,
 		max_tokens=2000,
 		temperature=0.7,
 		)
-	print(f'{completion["usage"]["prompt_tokens"]} prompt tokens counted by the OpenAI API.')
-	print(f'{completion["usage"]["total_tokens"]} total tokens counted by the OpenAI API.')
+	print(f'Usage: {completion["usage"]["prompt_tokens"]} + {completion["usage"]["completion_tokens"]} = {completion["usage"]["total_tokens"]} total tokens counted by the OpenAI API.')
 	return completion.choices[0].message.content
+
+if(lean):context.append({"role": "system", "content": "Provide a brief and concise answers to the following questions. Be lean and to the point."})
 
 # Loop through new messages
 while True:
-	if(lean):context.append({"role": "system", "content": "Provide a brief and concise answers to the following questions. Be lean and to the point."})
 	# Get new message from user
-	new_message = input("User: ")
+	new_message = input(f"User({gptmodel}): ")
+	# Exit if user types "exit"
+	if new_message == "exit":
+		break
+	# Change model if user types "model"
+	if new_message == "gpt4":
+		gptmodel = "gpt-4"
+		continue
+	if new_message == "gpt3.5":
+		gptmodel = "gpt-3.5-turbo-0301"
+		continue
+
 	# Add new message to message history as an array of json objects like {"role": "user", "content": message}
 	context.append({"role": "user", "content": new_message})
 	# Save updated message history to file
@@ -87,7 +95,9 @@ while True:
 		json.dump(context, f)
 
 	context_length = tokens_count(context, gptmodel)
-	trim_context(context, context_max, gptmodel)
+	if(context_length>context_max):
+		trim_context(context, context_max, gptmodel)
+		print("Context trimmed.")
 	print(f"Context Tokens: {tokens_count(context, gptmodel)}")
 	# Get response from OpenAI API
 	bot_response = send_message(trim_context(context, context_max, gptmodel))
